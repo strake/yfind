@@ -16,8 +16,11 @@ library
   hs-source-dirs:      src
   exposed-modules:     Evolve
                      , YFind
-  build-depends:       base >= 4.7 && < 5
+  other-modules:       Util.Array
+  build-depends:       array
+                     , base >= 4.7 && < 5
                      , base-unicode-symbols
+                     , bitwise
                      , ca
                      , transformers
                      , util
@@ -44,7 +47,8 @@ library
 executable yfind
   hs-source-dirs:      x
   main-is:             Main.hs
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       array
+                     , base >= 4.7 && < 5
                      , base-unicode-symbols
                      , ca
                      , optparse-applicative
