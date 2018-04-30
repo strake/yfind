@@ -43,7 +43,9 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
     (bind2 . zipWithM_) (curry $ assert <=< uncurry mkEq)
         (traverse (pad dx)          (rows ++ replicate dy zeroRow))
         (traverse (pad (negate dx)) (replicate dy zeroRow ++ rows'))
-    rowses <$ (assert =<< mkNot =<< mkEq zeroRow =<< foldrM mkBvor zeroRow rows)
+
+    rowses <$ case rows' of row:_ -> assert =<< mkNot =<< mkEq zeroRow row
+                            _     -> assert =<< mkBool False
 
 getRows :: MonadZ3 z3 => [AST] -> MaybeT z3 [Natural]
 getRows rows = do
