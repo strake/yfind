@@ -10,7 +10,7 @@ extra-deps:
 - git: https://github.com/strake/ca.hs
   commit: 43a031dd42c6c02c16bb91020a1f7c6aaa98321a
 - git: https://github.com/strake/util.hs
-  commit: 989d3fe4f5da455ee7dd1337752ee7a2ee1b4d09
+  commit: 80d96e3dc972b7353cbf59bd8b2802c382a8fb5a
 - git: https://github.com/strake/z3.hs
   commit: 4e0898e78c1df0e3eab32201746f3d6a08b05dc4
 

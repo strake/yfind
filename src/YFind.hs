@@ -19,8 +19,18 @@ import Evolve
 data Parms = Parms { speed :: ((Int, Word), Word), size :: (Word, Word) }
   deriving (Eq, Read, Show)
 
-go :: Rule -> Parms -> Maybe [Natural]
-go rule parms = unsafePerformIO . evalZ3 $ setup rule parms >>= runMaybeT . getRows . head
+go :: Rule -> Parms -> [[Natural]]
+go rule parms = unsafePerformIO $ do
+    env <- newEnv Nothing mempty
+    let e = flip evalZ3WithEnv env
+    rowses@(rows:|_) <- e $ setup rule parms
+    unsafeInterleaveWhileJustIO (mapMaybeT e $ getRows rows) $ e . exclude rowses
+
+exclude :: MonadZ3 z3 => NonEmpty [AST] -> [Natural] -> z3 ()
+exclude rowses answer =
+    for_ rowses (assert <=< mkNot <=< mkAnd <=<
+                 zipWithM (\ value ast ->
+                           mkEq ast =<< mkIntegral value =<< getSort ast) answer)
 
 setup :: MonadZ3 z3 => Rule -> Parms -> z3 (NonEmpty [AST])
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
@@ -49,3 +59,9 @@ iterateM 0 _ x = pure (x:|[])
 iterateM k f x = (x <|) <$> (f x >>= iterateM (k-1) f)
 
 fi = fromIntegral
+
+unsafeInterleaveWhileJustIO :: MaybeT IO a -> (a -> IO ()) -> IO [a]
+unsafeInterleaveWhileJustIO (MaybeT mma) f = go
+  where go = mma >>= unsafeInterleaveIO . \ case
+            Nothing -> pure []
+            Just a -> (a :) <$> unsafeInterleaveIO (a `seq` f a >> unsafeInterleaveWhileJustIO (MaybeT mma) f)

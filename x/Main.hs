@@ -9,13 +9,14 @@ import Numeric (showIntAtBase)
 import Numeric.Natural
 import Options.Applicative
 import Text.Read (readMaybe)
+import Util
 import YFind
 
 main :: IO ()
 main = do
     Options {..} <- execParser $ info options mempty
     let Parms { size = (fromIntegral -> width, _) } = parms
-    maybe (putStrLn "failed") (putStr . concatMap (showRow width)) $ go rule parms
+    foldMapA (putStrLn . concatMap (showRow width)) $ go rule parms
 
 data Options = Options { rule :: Rule, parms :: Parms }
 
