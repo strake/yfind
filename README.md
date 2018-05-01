@@ -8,7 +8,7 @@ Experimental/alpha quality
 
 ## Building
 
-You need [git](https://git-scm.com/) and [stack](https://haskell-lang.org/get-started).
+You need [git](https://git-scm.com/), [stack](https://haskell-lang.org/get-started), and [z3](https://github.com/Z3Prover/z3).
 
 ```sh
 git clone https://github.com/strake/yfind
