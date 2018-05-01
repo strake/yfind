@@ -8,10 +8,10 @@ import Control.Monad
 import Control.Monad.Trans.Maybe
 import Data.Array
 import Data.Foldable
-import Data.List.NonEmpty (NonEmpty (..), last, (<|))
+import Data.List.NonEmpty (NonEmpty (..), last)
 import Data.Rule.Hex
-import Numeric.Natural
 import System.IO.Unsafe
+import Util
 import Util.Array
 import Z3.Monad
 
@@ -48,10 +48,6 @@ getBoolValues :: (MonadZ3 z3, Traversable f) => f AST -> MaybeT z3 (f Bool)
 getBoolValues xs = do
     model <- MaybeT (snd <$> solverCheckAndGetModel)
     MaybeT (mapEval evalBool model xs)
-
-iterateM :: Monad m => Natural -> (a -> m a) -> a -> m (NonEmpty a)
-iterateM 0 _ x = pure (x:|[])
-iterateM k f x = (x <|) <$> (f x >>= iterateM (k-1) f)
 
 fi = fromIntegral
 

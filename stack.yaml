@@ -4,14 +4,10 @@ packages:
 - .
 
 extra-deps:
+- alg-0.2.2.0
 - bitwise-1.0.0.1
-- git: https://github.com/strake/alg.hs
-  commit: fd323cebe3a82a416fe78eacfb910671b445f542
+- util-0.1.7.0
 - git: https://github.com/strake/ca.hs
   commit: 43a031dd42c6c02c16bb91020a1f7c6aaa98321a
-- git: https://github.com/strake/util.hs
-  commit: 80d96e3dc972b7353cbf59bd8b2802c382a8fb5a
 - git: https://github.com/strake/z3.hs
   commit: 4e0898e78c1df0e3eab32201746f3d6a08b05dc4
-
-allow-newer: true
