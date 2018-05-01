@@ -12,6 +12,8 @@ import Data.Traversable
 import Util.Array
 import Z3.Monad
 
+import Nbhd
+
 evolve :: (MonadZ3 z3, Num i, Ix i) => Rule -> Array (i, i) AST -> z3 (Array (i, i) AST)
 evolve rule = \ a -> do
     false <- mkBool False
@@ -20,16 +22,9 @@ evolve rule = \ a -> do
                         bool (pure false) `flip` testBit table n $
                         mkAnd =<<
                         zipWithM mkEq (bool false true <$> toListLE n)
-                                      (fromMaybe false . (a !?) <$> rawNbhd ix)
+                                      (fromMaybe false . (a !?) <$> rawHexNbhd ix)
     x <- traverse (getSort >=> mkFreshConst "cell") a
     x <$ (range . expandedBounds) a `for` \ ix -> assert =<< mkEq (fromMaybe false $ x !? ix) =<< evolveNbhd ix
   where table = tabulate rule
-        rawNbhd (i, j) = [(i+0, j+1),
-                          (i-1, j+1),
-                          (i+1, j+0),
-                          (i+0, j+0),
-                          (i-1, j+0),
-                          (i+1, j-1),
-                          (i+0, j-1)]
         expandedBounds a = let ((il, jl), (ih, jh)) = bounds a
                            in ((il-1, jl-1), (ih+1, jh+1))
