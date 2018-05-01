@@ -15,7 +15,6 @@ import YFind
 main :: IO ()
 main = do
     Options {..} <- execParser $ info options mempty
-    let Parms { size = (fromIntegral -> width, _) } = parms
     foldMapA (putStrLn . showGrid) $ go rule parms
 
 data Options = Options { rule :: Rule, parms :: Parms }
