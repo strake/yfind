@@ -21,11 +21,11 @@ main = do
 data Options = Options { rule :: Rule, parms :: Parms }
 
 options :: Parser Options
-options = Options <$> option (maybeReader readMaybe) (short 'r' <> help "rule")
+options = Options <$> option (maybeReader readMaybe) (short 'r' <> metavar "rule")
                   <*> (Parms <$> option (maybeReader $ \ s ->
                                          (read *** read . tail <<< flip splitAt s) <$> elemIndex '/' s)
-                                        (short 'v' <> help "speed" <> value ((0,0),1))
-                             <*> option auto (short 's' <> help "size"))
+                                        (short 'v' <> metavar "speed" <> value ((0,0),1))
+                             <*> option auto (short 's' <> metavar "size"))
 
 showGrid :: Array (Int, Int) Bool -> [Char]
 showGrid a = flip concatMap [jl..jh] $ \ j ->
