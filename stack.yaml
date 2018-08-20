@@ -1,12 +1,10 @@
-resolver: nightly-2018-04-01
+resolver: lts-12.7
 
 packages:
 - .
 
 extra-deps:
-- alg-0.2.2.0
 - bitwise-1.0.0.1
-- util-0.1.7.0
 - git: https://github.com/strake/ca.hs
   commit: 43a031dd42c6c02c16bb91020a1f7c6aaa98321a
 - git: https://github.com/strake/z3.hs
