@@ -10,11 +10,11 @@ import Data.Maybe (fromMaybe)
 import Data.Rule.Hex
 import Data.Traversable
 import Util.Array
-import Z3.Monad
+import Z3.Tagged
 
 import Nbhd
 
-evolve :: (MonadZ3 z3, Num i, Ix i) => Rule -> Array (i, i) AST -> z3 (Array (i, i) AST)
+evolve :: (Num i, Ix i) => Rule -> Array (i, i) (AST s) -> Z3 s (Array (i, i) (AST s))
 evolve rule = \ a -> do
     false <- mkBool False
     true  <- mkBool True

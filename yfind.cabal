@@ -23,9 +23,11 @@ library
                      , base-unicode-symbols
                      , bitwise
                      , ca
+                     , ez3
+                     , primitive
                      , transformers
                      , util
-                     , z3
+                     , util-primitive
   default-language:    Haskell2010
   default-extensions:  UnicodeSyntax
                      , LambdaCase
@@ -52,10 +54,10 @@ executable yfind
                      , base >= 4.7 && < 5
                      , base-unicode-symbols
                      , ca
+                     , ez3
                      , optparse-applicative
                      , util
                      , yfind
-                     , z3
   default-language:    Haskell2010
   default-extensions:  UnicodeSyntax
                      , LambdaCase

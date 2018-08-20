@@ -5,15 +5,16 @@ module YFind (Parms (..), go) where
 import Prelude hiding (last, replicate)
 import Control.Arrow
 import Control.Monad
+import Control.Monad.Primitive
 import Control.Monad.Trans.Maybe
 import Data.Array
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty (..), last)
 import Data.Rule.Hex
-import System.IO.Unsafe
 import Util
 import Util.Array
-import Z3.Monad
+import Util.Monad.Primitive.Unsafe
+import Z3.Tagged
 
 import Evolve
 
@@ -21,18 +22,18 @@ data Parms = Parms { speed :: ((Int, Word), Word), size :: (Word, Word) }
   deriving (Eq, Read, Show)
 
 go :: Rule -> Parms -> [Array (Int, Int) Bool]
-go rule parms = unsafePerformIO $ do
+go rule parms = unsafeInlinePrim $ do
     env <- newEnv Nothing mempty
     let e = flip evalZ3WithEnv env
     grids@(grid:|_) <- e $ setup rule parms
-    unsafeInterleaveWhileJustIO (mapMaybeT e $ getBoolValues grid) $ e . exclude grids
+    unsafeInterleaveWhileJust (e . runMaybeT $ getBoolValues grid) $ e . exclude grids
 
-exclude :: MonadZ3 z3 => NonEmpty (Array (Int, Int) AST) -> Array (Int, Int) Bool -> z3 ()
+exclude :: NonEmpty (Array (Int, Int) (AST s)) -> Array (Int, Int) Bool -> Z3 s ()
 exclude grids answer =
     for_ grids (assert <=< mkNot <=< mkAnd . elems <=<
                 zipArraysA (\ value ast -> mkEq ast =<< mkBool value) answer)
 
-setup :: MonadZ3 z3 => Rule -> Parms -> z3 (NonEmpty (Array (Int, Int) AST))
+setup :: Rule -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)))
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
                   , size = (fi -> width, fi -> height) }) = do
     grids@(grid:|_) <- iterateM period (evolve rule) <=< sequenceA $ listArray ((0, 0), (width-1, height-1)) . repeat $ mkFreshBoolVar "cell"
@@ -44,20 +45,14 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
   where shift (dx, dy) a = ixmap ((il + dx, jl + dy), (ih + dx, jh + dy)) ((+ negate dx) *** (+ negate dy)) a
           where ((il, jl), (ih, jh)) = bounds a
 
-getBoolValues :: (MonadZ3 z3, Traversable f) => f AST -> MaybeT z3 (f Bool)
+getBoolValues :: (Traversable f) => f (AST s) -> MaybeT (Z3 s) (f Bool)
 getBoolValues xs = do
     model <- MaybeT (snd <$> solverCheckAndGetModel)
     MaybeT (mapEval evalBool model xs)
 
 fi = fromIntegral
 
-unsafeInterleaveWhileJustIO :: MaybeT IO a -> (a -> IO ()) -> IO [a]
-unsafeInterleaveWhileJustIO (MaybeT mma) f = go
-  where go = mma >>= unsafeInterleaveIO . \ case
-            Nothing -> pure []
-            Just a -> (a :) <$> unsafeInterleaveIO (a `seq` f a >> unsafeInterleaveWhileJustIO (MaybeT mma) f)
-
-mkArraysEqual :: (Ix i, MonadZ3 z3) => Array i AST -> Array i AST -> z3 AST
+mkArraysEqual :: (Ix i) => Array i (AST s) -> Array i (AST s) -> Z3 s (AST s)
 mkArraysEqual a b = mkAnd . toList =<<
                     zipArraysA' (curry $ \ case (Nothing, Nothing) -> mkBool True
                                                 (Just x,  Nothing) -> mkNot x
