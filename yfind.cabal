@@ -38,14 +38,17 @@ library
                      , ConstraintKinds
                      , FlexibleContexts
                      , FlexibleInstances
+                     , MonadComprehensions
                      , StandaloneDeriving
-                     , DeriveFunctor
-                     , DeriveFoldable
-                     , DeriveTraversable
+                     , DeriveFunctor, DeriveFoldable, DeriveTraversable
                      , OverloadedStrings
   ghc-options:         -Wall -Wcompat -Wredundant-constraints -Wno-name-shadowing
                        -Wincomplete-record-updates -Wincomplete-uni-patterns
-                       -O2
+                       -Werror=incomplete-patterns
+                       -Werror=incomplete-uni-patterns
+                       -Werror=incomplete-record-updates
+                       -Werror=missing-fields
+                       -Werror=missing-methods
 
 executable yfind
   hs-source-dirs:      x
@@ -67,14 +70,17 @@ executable yfind
                      , ConstraintKinds
                      , FlexibleContexts
                      , FlexibleInstances
+                     , MonadComprehensions
                      , StandaloneDeriving
-                     , DeriveFunctor
-                     , DeriveFoldable
-                     , DeriveTraversable
+                     , DeriveFunctor, DeriveFoldable, DeriveTraversable
                      , OverloadedStrings
   ghc-options:         -Wall -Wcompat -Wredundant-constraints -Wno-name-shadowing
                        -Wincomplete-record-updates -Wincomplete-uni-patterns
-                       -O2
+                       -Werror=incomplete-patterns
+                       -Werror=incomplete-uni-patterns
+                       -Werror=incomplete-record-updates
+                       -Werror=missing-fields
+                       -Werror=missing-methods
 
 test-suite test
   type:                exitcode-stdio-1.0
@@ -94,14 +100,17 @@ test-suite test
                      , ConstraintKinds
                      , FlexibleContexts
                      , FlexibleInstances
+                     , MonadComprehensions
                      , StandaloneDeriving
-                     , DeriveFunctor
-                     , DeriveFoldable
-                     , DeriveTraversable
+                     , DeriveFunctor, DeriveFoldable, DeriveTraversable
                      , OverloadedStrings
   ghc-options:         -Wall -Wcompat -Wredundant-constraints -Wno-name-shadowing
                        -Wincomplete-record-updates -Wincomplete-uni-patterns
-                       -O2
+                       -Werror=incomplete-patterns
+                       -Werror=incomplete-uni-patterns
+                       -Werror=incomplete-record-updates
+                       -Werror=missing-fields
+                       -Werror=missing-methods
 
 source-repository head
   type:     git
