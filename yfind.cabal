@@ -15,15 +15,17 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Evolve
-                     , Nbhd
+                     , Rule
                      , YFind
   other-modules:       Util.Array
-  build-depends:       array
+  build-depends:       Fin
+                     , array
                      , base >= 4.7 && < 5
                      , base-unicode-symbols
                      , bitwise
                      , ca
                      , ez3
+                     , peano
                      , primitive
                      , transformers
                      , util
@@ -32,8 +34,10 @@ library
   default-extensions:  UnicodeSyntax
                      , LambdaCase
                      , InstanceSigs
-                     , PartialTypeSignatures
                      , NoMonomorphismRestriction
+                     , PartialTypeSignatures
+                     , ScopedTypeVariables
+                     , TypeApplications
                      , PolyKinds
                      , ConstraintKinds
                      , FlexibleContexts
@@ -49,6 +53,7 @@ library
                        -Werror=incomplete-record-updates
                        -Werror=missing-fields
                        -Werror=missing-methods
+                       -Wno-unticked-promoted-constructors
 
 executable yfind
   hs-source-dirs:      x

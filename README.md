@@ -2,10 +2,6 @@
 
 Search for translating patterns (a.k.a. spaceships) in cellular automata.
 
-Now only does hexagonal rules; should do square/full Moore rules in future.
-
-Experimental/alpha quality
-
 ## Building
 
 You need [git](https://git-scm.com/), [stack](https://haskell-lang.org/get-started), and [z3](https://github.com/Z3Prover/z3).

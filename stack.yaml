@@ -7,7 +7,7 @@ extra-deps:
 - bitwise-1.0.0.1
 - ez3-0.1.0.0
 - git: https://github.com/strake/ca.hs
-  commit: 43a031dd42c6c02c16bb91020a1f7c6aaa98321a
+  commit: eb4ec5c54b511af1da8fd6b159b8f71bfb25996f
 - git: https://github.com/strake/primitive.hs
   commit: a43f1f488c78ffdb3acb607df703df16533fe7db
 - git: https://github.com/strake/util-primitive.hs

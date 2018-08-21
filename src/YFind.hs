@@ -10,30 +10,30 @@ import Control.Monad.Trans.Maybe
 import Data.Array
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty (..), last)
-import Data.Rule.Hex
 import Util
 import Util.Array
 import Util.Monad.Primitive.Unsafe
 import Z3.Tagged
 
 import Evolve
+import Rule
 
 data Parms = Parms { speed :: ((Int, Word), Word), size :: (Word, Word) }
   deriving (Eq, Read, Show)
 
-go :: Rule -> Parms -> [Array (Int, Int) Bool]
+go :: (Applicative f, Traversable f) => Rule (Int, Int) f Bool -> Parms -> [Array (Int, Int) Bool]
 go rule parms = unsafeInlinePrim $ do
     env <- newEnv Nothing mempty
     let e = flip evalZ3WithEnv env
     grids@(grid:|_) <- e $ setup rule parms
     unsafeInterleaveWhileJust (e . runMaybeT $ getBoolValues grid) $ e . exclude grids
 
-exclude :: NonEmpty (Array (Int, Int) (AST s)) -> Array (Int, Int) Bool -> Z3 s ()
+exclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s ()
 exclude grids answer =
     for_ grids (assert <=< mkNot <=< mkAnd . elems <=<
                 zipArraysA (\ value ast -> mkEq ast =<< mkBool value) answer)
 
-setup :: Rule -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)))
+setup :: (Applicative f, Traversable f) => Rule (Int, Int) f Bool -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)))
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
                   , size = (fi -> width, fi -> height) }) = do
     grids@(grid:|_) <- iterateM period (evolve rule) <=< sequenceA $ listArray ((0, 0), (width-1, height-1)) . repeat $ mkFreshBoolVar "cell"
