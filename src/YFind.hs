@@ -3,13 +3,13 @@
 module YFind (Parms (..), go) where
 
 import Prelude hiding (last, replicate)
-import Control.Arrow
 import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.Trans.Maybe
 import Data.Array
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty (..), last)
+import Data.Maybe
 import Util
 import Util.Array
 import Util.Monad.Primitive.Unsafe
@@ -31,7 +31,9 @@ go rule parms = unsafeInlinePrim $ do
 exclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s ()
 exclude grids answer =
     for_ grids (assert <=< mkNot <=< mkAnd . elems <=<
-                zipArraysA (\ value ast -> mkEq ast =<< mkBool value) answer)
+                zipArraysA (\ (fromMaybe False -> value) ->
+                            maybe (mkBool False) pure >=> \ ast ->
+                            mkEq ast =<< mkBool value) answer)
 
 setup :: (Applicative f, Traversable f) => Rule (Int, Int) f Bool -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)))
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
@@ -42,8 +44,9 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
     grids <$ do assert =<< mkArraysEqual grid (shift (dx, dy) grid')
                 assert =<< (mkOr . toList . ixmap ((0, 0), (width-1, 0)) id) grid'
 
-  where shift (dx, dy) a = ixmap ((il + dx, jl + dy), (ih + dx, jh + dy)) ((+ negate dx) *** (+ negate dy)) a
-          where ((il, jl), (ih, jh)) = bounds a
+shift :: (Ix i, Num i) => (i, i) -> Array (i, i) a -> Array (i, i) a
+shift (dx, dy) a = listArray ((il + dx, jl + dy), (ih + dx, jh + dy)) (elems a)
+  where ((il, jl), (ih, jh)) = bounds a
 
 getBoolValues :: (Traversable f) => f (AST s) -> MaybeT (Z3 s) (f Bool)
 getBoolValues xs = do
@@ -54,7 +57,7 @@ fi = fromIntegral
 
 mkArraysEqual :: (Ix i) => Array i (AST s) -> Array i (AST s) -> Z3 s (AST s)
 mkArraysEqual a b = mkAnd . toList =<<
-                    zipArraysA' (curry $ \ case (Nothing, Nothing) -> mkBool True
-                                                (Just x,  Nothing) -> mkNot x
-                                                (Nothing, Just y)  -> mkNot y
-                                                (Just x,  Just y)  -> mkEq x y) a b
+                    zipArraysA (curry $ \ case (Nothing, Nothing) -> mkBool True
+                                               (Just x,  Nothing) -> mkNot x
+                                               (Nothing, Just y)  -> mkNot y
+                                               (Just x,  Just y)  -> mkEq x y) a b
