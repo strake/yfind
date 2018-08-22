@@ -58,7 +58,7 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
                 case symmetry of
                     Just (Symmetry.Mode {glideReflect = False, axis}) -> for_ grids $ \ grid ->
                         assert =<< (mkArraysEqual <*> reflect axis) grid
-                    _ -> pure ()
+                    _ -> assert =<< (mkOr . altMap (toList . ixmap ((0, 0), (0, height-1)) id)) grids
   where
     reflect :: (Ix i, Num i) => Symmetry.Axis -> Array (i, i) (AST s) -> Array (i, i) (AST s)
     reflect = \ case
