@@ -16,6 +16,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Evolve
                      , Rule
+                     , Symmetry
                      , YFind
   other-modules:       Util.Array
   build-depends:       Fin
