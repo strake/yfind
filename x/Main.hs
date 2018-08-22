@@ -5,10 +5,13 @@
 module Main where
 
 import Control.Arrow
+import Control.Monad
 import Data.Array
 import Data.Bool
 import Data.Char
 import Data.List (elemIndex, reverse, stripPrefix)
+import Data.List.Split (splitOn)
+import Data.Maybe (fromMaybe)
 import qualified Data.Rule.Hex as Hex
 import qualified Data.Rule.Moore as Moore
 import Options.Applicative
@@ -21,22 +24,26 @@ import qualified Symmetry
 
 main :: IO ()
 main = do
-    Options {..} <- execParser $ info options mempty
+    Options {..} <- execParser (info (unMaybeReaderT options) mempty) >>= \ case
+        Left o -> pure o
+        Right f -> f . fromMaybe (error "no parse") . readGrid <$> getContents
     foldMapA (putStrLn . showGrid) $ case rule' of Rule' rule -> go rule parms
 
 data Options = Options { rule' :: Rule' (Int, Int) Bool, parms :: Parms }
 
 data Rule' i a where Rule' :: (Applicative f, Traversable f) => Rule i f a -> Rule' i a
 
-options :: Parser Options
-options = Options <$> option (maybeReader parseRule') (short 'r' <> metavar "rule")
-                  <*> (Parms <$> option (maybeReader $ \ s ->
-                                         (read *** read . tail <<< flip splitAt s) <$> elemIndex '/' s)
-                                        (short 'v' <> metavar "speed" <> value ((0,0),1))
-                             <*> option auto (short 's' <> metavar "size")
-                             <*> option (maybeReader $ fmap Just . parseSymmetryMode)
-                                        (short 'g' <> metavar "symmetry" <> value Nothing)
-                             <*> switch (long "strict-period"))
+options :: MaybeReaderT (Array (Int, Int) (Maybe Bool)) Parser Options
+options = Options <$> lift (option (maybeReader parseRule') (short 'r' <> metavar "rule"))
+                  <*> (Parms <$> lift (option (maybeReader $ \ s ->
+                                               (read *** read . tail <<< flip splitAt s) <$> elemIndex '/' s)
+                                              (short 'v' <> metavar "speed" <> value ((0,0),1)))
+                             <*> ((\ size -> listArray ((0, 0), join (***) (+ negate 1) size) (repeat Nothing)) <$>
+                                  lift (option auto (short 's' <> metavar "size")) <|>
+                                  lift (flag' (Right ()) (short 'i')) *> MaybeReaderT (pure $ Right id))
+                             <*> lift (option (maybeReader $ fmap Just . parseSymmetryMode)
+                                              (short 'g' <> metavar "symmetry" <> value Nothing))
+                             <*> lift (switch (long "strict-period")))
   where
     parseRule' :: [Char] -> Maybe (Rule' (Int, Int) Bool)
     parseRule' (fmap toUpper -> s)
@@ -60,5 +67,35 @@ showGrid a = flip concatMap [jl..jh] $ \ j ->
              bool '.' 'o' $ a ! (i, j)
   where ((il, jl), (ih, jh)) = bounds a
 
+readGrid :: [Char] -> Maybe (Array (Int, Int) (Maybe Bool))
+readGrid =
+    splitOn "\n" & (traverse . traverse $ \ case
+                        '.' -> Just (Just False)
+                        'o' -> Just (Just True)
+                        ' ' -> Just Nothing
+                        _   -> Nothing) &
+    fmap (\ rows ->
+          let (width, height) = (maximum $ length <$> rows, length rows)
+          in array ((0, 0), (width-1, height-1))
+             [((i, j), c) | (j, row) <- zip [0..] rows
+                          , (i, c)   <- zip [0..] (reverse . take width $ row ++ repeat Nothing)])
+
 stripSuffix :: Eq a => [a] -> [a] -> Maybe [a]
 stripSuffix x = fmap reverse . stripPrefix (reverse x) . reverse
+
+newtype MaybeReaderT r m a = MaybeReaderT { unMaybeReaderT :: m (Either a (r -> a)) }
+
+instance Functor f => Functor (MaybeReaderT r f) where fmap f (MaybeReaderT x) = MaybeReaderT $ (f +++ (f.)) <$> x
+instance Applicative p => Applicative (MaybeReaderT r p) where
+    pure = MaybeReaderT . pure . Left
+    MaybeReaderT f <*> MaybeReaderT x = MaybeReaderT (liftA2 go f x)
+      where go (Left f) (Left x) = Left (f x)
+            go (Left f) (Right x) = Right (f . x)
+            go (Right f) (Left x) = Right (($x) . f)
+            go (Right f) (Right x) = Right (f <*> x)
+instance Alternative p => Alternative (MaybeReaderT r p) where
+    empty = MaybeReaderT empty
+    MaybeReaderT x <|> MaybeReaderT y = MaybeReaderT (x <|> y)
+
+lift :: Functor f => f a -> MaybeReaderT r f a
+lift = MaybeReaderT . fmap Left

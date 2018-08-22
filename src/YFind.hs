@@ -5,7 +5,7 @@
 
 module YFind (Parms (..), go) where
 
-import Prelude hiding (filter, head, init, last, replicate)
+import Prelude hiding (filter, head, last, replicate)
 import Control.Arrow
 import Control.Monad
 import Control.Monad.Primitive
@@ -14,7 +14,8 @@ import Data.Array
 import Data.Bool
 import Data.Filtrable
 import Data.Foldable
-import Data.List.NonEmpty (NonEmpty (..), head, init, last)
+import Data.List.NonEmpty (NonEmpty (..), head, last)
+import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe)
 import Data.Tuple (swap)
 import Util
@@ -27,7 +28,7 @@ import Evolve
 import Rule
 import qualified Symmetry
 
-data Parms = Parms { speed :: ((Int, Word), Word), size :: (Word, Word), symmetry :: Maybe Symmetry.Mode, strictPeriod :: Bool }
+data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (Maybe Bool), symmetry :: Maybe Symmetry.Mode, strictPeriod :: Bool }
   deriving (Eq, Read, Show)
 
 go :: (Applicative f, Traversable f) => Rule (Int, Int) f Bool -> Parms -> [Array (Int, Int) Bool]
@@ -46,27 +47,29 @@ exclude grids answer =
                             mkEq ast =<< mkBool value) answer)
 
 setup :: (Applicative f, Traversable f) => Rule (Int, Int) f Bool -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)))
-setup rule (Parms { speed = ((dx, fi -> dy), fi -> period)
-                  , size = (fi -> width, fi -> height)
-                  , .. }) = do
-    grids@(grid:|_) <- iterateM period (evolve rule) <=< sequenceA $ listArray ((0, 0), (width-1, height-1)) . repeat $ mkFreshBoolVar "cell"
+setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
+    let ((il, jl), (ih, jh)) = bounds init
+
+    grids@(grid:|_) <- iterateM period (evolve rule) <=< sequenceA $ listArray ((il, jl), (ih, jh)) . repeat $ mkFreshBoolVar "cell"
     let grid' = transform (last grids)
           where transform = case symmetry of
                     Just (Symmetry.Mode {glideReflect = True, axis}) -> reflect axis
                     _ -> id
 
     grids <$ do
+        false <- mkBool False
+        assert =<< mkAnd . toList =<< zipArraysA (join & maybe (pure $ mkBool True) (bool mkNot pure) & (. fromMaybe false)) init grid
         assert =<< mkArraysEqual grid (shift (dx, dy) grid')
-        assert =<< (mkOr . toList . ixmap ((0, 0), (fst . snd $ bounds grid', 0)) id) grid'
+        assert =<< (mkOr . toList . ixmap ((il, jl), (ih, jl)) id) grid'
         when strictPeriod
              (let c = foldr gcd (fi period) [dx, dy]
                   grids' = flip mapMaybe (factors c) $ \ n ->
-                           shift (n * dx `div` c, n * dy `div` c) <$> init grids !!? fi n
+                           shift (n * dx `div` c, n * dy `div` c) <$> NE.init grids !!? fi n
               in for_ grids' $ assert <=< mkNot <=< mkArraysEqual grid)
         case symmetry of
             Just (Symmetry.Mode {glideReflect = False, axis}) -> for_ grids $ \ grid ->
                 assert =<< (mkArraysEqual <*> reflect axis) grid
-            _ -> assert =<< (mkOr . altMap (toList . ixmap ((0, 0), (0, height-1)) id)) grids
+            _ -> assert =<< (mkOr . altMap (toList . ixmap ((il, jl), (il, jh)) id)) grids
   where
     reflect :: (Ix i, Num i) => Symmetry.Axis -> Array (i, i) (AST s) -> Array (i, i) (AST s)
     reflect = \ case
