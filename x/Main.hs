@@ -35,7 +35,8 @@ options = Options <$> option (maybeReader parseRule') (short 'r' <> metavar "rul
                                         (short 'v' <> metavar "speed" <> value ((0,0),1))
                              <*> option auto (short 's' <> metavar "size")
                              <*> option (maybeReader $ fmap Just . parseSymmetryMode)
-                                        (short 'g' <> metavar "symmetry" <> value Nothing))
+                                        (short 'g' <> metavar "symmetry" <> value Nothing)
+                             <*> switch (long "strict-period"))
   where
     parseRule' :: [Char] -> Maybe (Rule' (Int, Int) Bool)
     parseRule' (fmap toUpper -> s)
