@@ -4,7 +4,7 @@
 
 module YFind (Parms (..), go) where
 
-import Prelude hiding (last, replicate)
+import Prelude hiding (head, last, replicate)
 import Control.Arrow
 import Control.Monad
 import Control.Monad.Primitive
@@ -12,7 +12,7 @@ import Control.Monad.Trans.Maybe
 import Data.Array
 import Data.Bool
 import Data.Foldable
-import Data.List.NonEmpty (NonEmpty (..), last)
+import Data.List.NonEmpty (NonEmpty (..), head, last)
 import Data.Maybe
 import Data.Tuple (swap)
 import Util
@@ -20,6 +20,7 @@ import Util.Array
 import Util.Monad.Primitive.Unsafe
 import Z3.Tagged
 
+import Atomic
 import Evolve
 import Rule
 import qualified Symmetry
@@ -28,11 +29,12 @@ data Parms = Parms { speed :: ((Int, Word), Word), size :: (Word, Word), symmetr
   deriving (Eq, Read, Show)
 
 go :: (Applicative f, Traversable f) => Rule (Int, Int) f Bool -> Parms -> [Array (Int, Int) Bool]
-go rule parms = unsafeInlinePrim $ do
+go rule@(Rule {nbhd}) parms = fmap head . filter (isAtomic nbhd) . unsafeInlinePrim $ do
     env <- newEnv Nothing mempty
     let e = flip evalZ3WithEnv env
-    grids@(grid:|_) <- e $ setup rule parms
-    unsafeInterleaveWhileJust (e . runMaybeT $ getBoolValues grid) $ e . exclude grids
+    grids <- e $ setup rule parms
+    unsafeInterleaveWhileJust (e . runMaybeT $ traverse getBoolValues grids)
+                              (e . exclude grids . head)
 
 exclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s ()
 exclude grids answer =

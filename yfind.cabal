@@ -14,7 +14,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Evolve
+  exposed-modules:     Atomic
+                     , Evolve
                      , Rule
                      , Symmetry
                      , YFind
@@ -26,9 +27,11 @@ library
                      , bitwise
                      , ca
                      , ez3
+                     , filtrable
                      , peano
                      , primitive
                      , transformers
+                     , union-find
                      , util
                      , util-primitive
   default-language:    Haskell2010
