@@ -48,9 +48,11 @@ exclude grids answer =
 
 setup :: (Applicative f, Traversable f) => Rule (Int, Int) f Bool -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)))
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
+    evolve <- case rule of Rule {..} -> evolve' nbhd <$> mkEvol (length $ nbhd (0, 0)) evolveCell
+
     let ((il, jl), (ih, jh)) = bounds init
 
-    grids@(grid:|_) <- iterateM period (evolve rule) <=< sequenceA $ listArray ((il, jl), (ih, jh)) . repeat $ mkFreshBoolVar "cell"
+    grids@(grid:|_) <- iterateM period evolve <=< sequenceA $ listArray ((il, jl), (ih, jh)) . repeat $ mkFreshBoolVar "cell"
     let grid' = transform (last grids)
           where transform = case symmetry of
                     Just (Symmetry.Mode {glideReflect = True, axis}) -> reflect axis
