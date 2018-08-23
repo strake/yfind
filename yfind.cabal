@@ -69,6 +69,7 @@ executable yfind
                      , ez3
                      , optparse-applicative
                      , split
+                     , transformers
                      , util
                      , yfind
   default-language:    Haskell2010

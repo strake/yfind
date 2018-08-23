@@ -4,11 +4,14 @@
 
 module Main where
 
+import Control.Applicative
 import Control.Arrow
 import Control.Monad
+import Control.Monad.Trans.Reader
 import Data.Array
 import Data.Bool
 import Data.Char
+import Data.Foldable
 import Data.List (elemIndex, reverse, stripPrefix)
 import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe)
@@ -24,17 +27,21 @@ import qualified Symmetry
 
 main :: IO ()
 main = do
-    Options {..} <- execParser (info (unMaybeReaderT options) mempty) >>= \ case
+    (ruleString, Options {..}) <- execParser (info (unMaybeReaderT options) mempty) >>= \ case
         Left o -> pure o
         Right f -> f . fromMaybe (error "no parse") . readGrid <$> getContents
-    foldMapA (putStrLn . showGrid) $ case rule' of Rule' rule -> go rule parms
+    let showHeader a = asum ["x = ", show x, ", y = ", show y, ", rule = ", ruleString, "\n"]
+          where ((il, jl), (ih, jh)) = bounds a
+                (x, y) = (ih - il + 1, jh - jl + 1)
+    foldMapA (putStrLn . runReaderT (altMap ReaderT [showHeader, showGrid])) $ case rule' of Rule' rule -> go rule parms
 
 data Options = Options { rule' :: Rule' (Int, Int) Bool, parms :: Parms }
 
 data Rule' i a where Rule' :: (Applicative f, Traversable f) => Rule i f a -> Rule' i a
 
-options :: MaybeReaderT (Array (Int, Int) (Maybe Bool)) Parser Options
-options = Options <$> lift (option (maybeReader parseRule') (short 'r' <> metavar "rule"))
+options :: MaybeReaderT (Array (Int, Int) (Maybe Bool)) Parser ([Char], Options)
+options = (\ (ruleString, rule') parms -> (ruleString, Options {..}))
+                  <$> lift (option (maybeReader $ liftA2 fmap (,) parseRule') (short 'r' <> metavar "rule"))
                   <*> (Parms <$> lift (option (maybeReader $ \ s ->
                                                (read *** read . tail <<< flip splitAt s) <$> elemIndex '/' s)
                                               (short 'v' <> metavar "speed" <> value ((0,0),1)))
@@ -63,7 +70,7 @@ options = Options <$> lift (option (maybeReader parseRule') (short 'r' <> metava
 
 showGrid :: Array (Int, Int) Bool -> [Char]
 showGrid a = flip concatMap [jl..jh] $ \ j ->
-             (++ "\n") . flip fmap (reverse [il..ih]) $ \ i ->
+             (++ " $\n") . flip fmap (reverse [il..ih]) $ \ i ->
              bool '.' 'o' $ a ! (i, j)
   where ((il, jl), (ih, jh)) = bounds a
 
