@@ -69,9 +69,10 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
                            shift (n * dx `div` c, n * dy `div` c) <$> NE.init grids !!? fi n
               in for_ grids' $ assert <=< mkNot <=< mkArraysEqual grid)
         case symmetry of
+            Just (Symmetry.Mode {glideReflect = True}) -> pure ()
             Just (Symmetry.Mode {glideReflect = False, axis}) -> for_ grids $ \ grid ->
                 assert =<< (mkArraysEqual <*> reflect axis) grid
-            _ -> assert =<< (mkOr . altMap (toList . ixmap ((il, jl), (il, jh)) id)) grids
+            Nothing -> assert =<< (mkOr . altMap (toList . ixmap ((il, jl), (il, jh)) id)) grids
   where
     reflect :: (Ix i, Num i) => Symmetry.Axis -> Array (i, i) (AST s) -> Array (i, i) (AST s)
     reflect = \ case
