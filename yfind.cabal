@@ -16,7 +16,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Atomic
                      , Evolve
-                     , Rule
+                     , Nbhd
                      , Symmetry
                      , YFind
   other-modules:       Util.Array
@@ -32,6 +32,8 @@ library
                      , primitive
                      , transformers
                      , union-find
+                     , universe-base
+                     , universe-instances-base
                      , util
                      , util-primitive
   default-language:    Haskell2010
@@ -67,9 +69,11 @@ executable yfind
                      , base-unicode-symbols
                      , ca
                      , ez3
+                     , foldable1
                      , optparse-applicative
-                     , split
                      , transformers
+                     , universe-base
+                     , universe-instances-base
                      , util
                      , yfind
   default-language:    Haskell2010
