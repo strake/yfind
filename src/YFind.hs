@@ -56,14 +56,21 @@ go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> sha
                                               | vs <- for universe $ \ (nbhd, cell) ->
                                                     fmap ((,) (nbhd, cell)) . MaybeT $
                                                     evalBool model =<< mkApp evol =<< sequenceA [mkInt (fe' nbhd) nbhdSort, mkBool cell]])
-                              (e . exclude grids . head . fst)
+                              (e <<< assert <=< (mkOr . \ (a, b) -> [a, b]) <=< mkExclude grids . head *=* mkExcludeRule nbhdSort evol)
 
-exclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s ()
-exclude grids answer =
-    for_ grids (assert <=< mkNot <=< mkAnd . elems <=<
-                zipArraysA (\ (fromMaybe False -> value) ->
-                            maybe (mkBool False) pure >=> \ ast ->
-                            mkEq ast =<< mkBool value) answer)
+mkExclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s (AST s)
+mkExclude grids answer =
+    mkAnd <=< for (toList grids) $
+    mkNot <=< mkAnd . elems <=<
+    zipArraysA (\ (fromMaybe False -> value) ->
+                maybe (mkBool False) pure >=> \ ast ->
+                mkEq ast =<< mkBool value) answer
+
+mkExcludeRule :: (Eq nbhd, Finite nbhd)
+              => Sort s -> FuncDecl s -> (nbhd -> Bool -> Bool) -> Z3 s (AST s)
+mkExcludeRule nbhdSort evol rule =
+    mkNot <=< mkAnd <=< for universe $ \ (nbhd, cell) ->
+    bool mkNot pure (rule nbhd cell) =<< mkApp evol =<< sequenceA [mkInt (fe' nbhd) nbhdSort, mkBool cell]
 
 setup :: ∀ nbhd s .
          (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Index nbhd ~ (Int, Int), Eq nbhd, Finite nbhd)
