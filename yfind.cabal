@@ -51,6 +51,7 @@ library
                      , FlexibleInstances
                      , MonadComprehensions
                      , StandaloneDeriving
+                     , GeneralizedNewtypeDeriving
                      , DeriveFunctor, DeriveFoldable, DeriveTraversable
                      , OverloadedStrings
   ghc-options:         -Wall -Wcompat -Wredundant-constraints -Wno-name-shadowing

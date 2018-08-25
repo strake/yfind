@@ -7,8 +7,9 @@
 
 module YFind (Parms (..), go) where
 
-import Prelude hiding (filter, head, last, replicate)
+import Prelude hiding (filter, head, last, replicate, id, (.))
 import Control.Arrow
+import Control.Category
 import Control.Monad
 import Control.Monad.ST
 import Control.Monad.Trans.Maybe
@@ -19,10 +20,9 @@ import Data.Foldable
 import Data.Functor.Identity
 import Data.Functor.Compose
 import Data.Functor.Product
-import qualified Data.List as List
 import Data.List.NonEmpty (NonEmpty (..), head, last)
 import qualified Data.List.NonEmpty as NE
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Proxy
 import Data.Traversable
 import Data.Tuple (swap)
@@ -50,14 +50,12 @@ go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> sha
     let e :: ∀ a . _ a -> _ a
         e = flip evalZ3WithEnv env
     (grids, evolve1) <- e $ setup rule parms
-    unsafeInterleaveWhileJust (e . runMaybeT $ do
-                                   model <- MaybeT (snd <$> solverCheckAndGetModel)
-                                   (,) <$> (getCompose <$> MaybeT (mapEval evalBool model (Compose grids)))
-                                       <*> [\ nbhd cell -> fromJust $ List.lookup (nbhd, cell) vs
-                                              | vs <- for universe $ \ (nbhd, cell) ->
-                                                    fmap ((,) (nbhd, cell)) . MaybeT $
-                                                    evalBool model =<< evolve1 nbhd cell])
-                              (e <<< assert <=< (mkOr . \ (a, b) -> [a, b]) <=< mkExclude grids . head *=* mkExcludeRule evolve1)
+    unsafeInterleaveWhileJust
+        (e . runMaybeT $ do
+             model <- MaybeT (snd <$> solverCheckAndGetModel)
+             (,) <$> (getCompose <$> MaybeT (mapEval evalBool model (Compose grids)))
+                 <*> (curry . unFn <$> traverse (MaybeT <<< evalBool model <=< uncurry evolve1) id))
+        (e <<< assert <=< (mkOr . \ (a, b) -> [a, b]) <=< mkExclude grids . head *=* mkExcludeRule evolve1)
 
 mkExclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s (AST s)
 mkExclude grids answer =
