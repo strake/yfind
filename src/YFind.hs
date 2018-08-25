@@ -49,15 +49,15 @@ go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> sha
     env <- newEnv Nothing mempty
     let e :: ∀ a . _ a -> _ a
         e = flip evalZ3WithEnv env
-    (grids, nbhdSort, evol) <- e $ setup rule parms
+    (grids, evolve1) <- e $ setup rule parms
     unsafeInterleaveWhileJust (e . runMaybeT $ do
                                    model <- MaybeT (snd <$> solverCheckAndGetModel)
                                    (,) <$> (getCompose <$> MaybeT (mapEval evalBool model (Compose grids)))
                                        <*> [\ nbhd cell -> fromJust $ List.lookup (nbhd, cell) vs
                                               | vs <- for universe $ \ (nbhd, cell) ->
                                                     fmap ((,) (nbhd, cell)) . MaybeT $
-                                                    evalBool model =<< mkApp evol =<< sequenceA [mkInt (fe' nbhd) nbhdSort, mkBool cell]])
-                              (e <<< assert <=< (mkOr . \ (a, b) -> [a, b]) <=< mkExclude grids . head *=* mkExcludeRule nbhdSort evol)
+                                                    evalBool model =<< evolve1 nbhd cell])
+                              (e <<< assert <=< (mkOr . \ (a, b) -> [a, b]) <=< mkExclude grids . head *=* mkExcludeRule evolve1)
 
 mkExclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s (AST s)
 mkExclude grids answer =
@@ -67,24 +67,24 @@ mkExclude grids answer =
                 maybe (mkBool False) pure >=> \ ast ->
                 mkEq ast =<< mkBool value) answer
 
-mkExcludeRule :: (Eq nbhd, Finite nbhd)
-              => Sort s -> FuncDecl s -> (nbhd -> Bool -> Bool) -> Z3 s (AST s)
-mkExcludeRule nbhdSort evol rule =
+mkExcludeRule :: (Finite nbhd)
+              => (nbhd -> Bool -> Z3 s (AST s)) -> (nbhd -> Bool -> Bool) -> Z3 s (AST s)
+mkExcludeRule evolve1 rule =
     mkNot <=< mkAnd <=< for universe $ \ (nbhd, cell) ->
-    bool mkNot pure (rule nbhd cell) =<< mkApp evol =<< sequenceA [mkInt (fe' nbhd) nbhdSort, mkBool cell]
+    bool mkNot pure (rule nbhd cell) =<< evolve1 nbhd cell
 
 setup :: ∀ nbhd s .
          (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Index nbhd ~ (Int, Int), Eq nbhd, Finite nbhd)
-      => (nbhd -> Bool -> [Bool]) -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)), Sort s, FuncDecl s)
+      => (nbhd -> Bool -> [Bool]) -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)), nbhd -> Bool -> Z3 s (AST s))
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
-    (nbhdSort, nbhdFn, evol) <- setupRule rule
+    (nbhdFn, evol, evolve1) <- setupRule rule
     grids@(grid:|_) <- setupGrid (Proxy :: _ nbhd) evol nbhdFn period (bounds init)
     let grid' = transform (last grids)
           where transform = case symmetry of
                     Just (Symmetry.Mode {glideReflect = True, axis}) -> reflect axis
                     _ -> id
 
-    (grids, nbhdSort, evol) <$ do
+    (grids, evolve1) <$ do
         false <- mkBool False
         assert =<< mkAnd . toList =<< zipArraysA (join & maybe (pure $ mkBool True) (bool mkNot pure) & (. fromMaybe false)) init grid
         assert =<< mkArraysEqual grid (shift (dx, dy) grid')
@@ -113,17 +113,18 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
 
 setupRule :: ∀ nbhd s .
     (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Eq nbhd, Finite nbhd)
- => (nbhd -> Bool -> [Bool]) -> Z3 s (Sort s, FuncDecl s, FuncDecl s)
+ => (nbhd -> Bool -> [Bool]) -> Z3 s (FuncDecl s, FuncDecl s, nbhd -> Bool -> Z3 s (AST s))
 setupRule rule = do
     (nbhdSort, nbhdFn) <- mkNbhdFn (fromCells @nbhd)
-    let mkNbhd :: nbhd -> Z3 s (AST s)
-        mkNbhd = flip mkInt nbhdSort . fe'
-    [(nbhdSort, nbhdFn, evol)
-       | boolSort <- mkBoolSort
-       , evol <- mkFreshFuncDecl "evolve" [nbhdSort, boolSort] boolSort
-       , () <- for_ (universeF :: [(Bool, nbhd)]) $ \ (cell, nbhd) ->
+    boolSort <- mkBoolSort
+    evol <- mkFreshFuncDecl "evolve" [nbhdSort, boolSort] boolSort
+    let evolve1 :: nbhd -> Bool -> Z3 s (AST s)
+        evolve1 nbhd cell =
+            mkApp evol =<< sequenceA [mkInt (fi $ universalIndex nbhd) nbhdSort, mkBool cell]
+    [(nbhdFn, evol, evolve1)
+       | () <- for_ (universeF :: [(Bool, nbhd)]) $ \ (cell, nbhd) ->
                assert <=< mkOr <=< for (toList $ rule nbhd cell) $
-               bind2 mkEq (mkApp evol =<< sequenceA [mkNbhd nbhd, mkBool cell]) . mkBool]
+               bind2 mkEq (evolve1 nbhd cell) . mkBool]
 
 setupGrid :: ∀ nbhd i s .
     (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (i, i), Num i, Ix i)
@@ -141,12 +142,8 @@ mkNbhdFn f =
        , nbhdSort <- mkFiniteDomainSort nbhdSortSymbol (fi $ length (universeF :: [nbhd]))
        , nbhdFn <- mkFreshFuncDecl "nbhd" (toList $ pure @f boolSort) nbhdSort
        , () <- for_ (sequenceA $ pure (universeF :: [Bool])) $
-               assert <=< bind2 mkEq <$> flip mkInt nbhdSort . fe' . f
+               assert <=< bind2 mkEq <$> flip mkInt nbhdSort . fi . universalIndex . f
                                      <*> (mkApp nbhdFn . toList <=< traverse mkBool)]
-
-shift :: (Ix i, Num i) => (i, i) -> Array (i, i) a -> Array (i, i) a
-shift (dx, dy) a = listArray ((il + dx, jl + dy), (ih + dx, jh + dy)) (elems a)
-  where ((il, jl), (ih, jh)) = bounds a
 
 fi = fromIntegral
 
@@ -156,9 +153,3 @@ mkArraysEqual a b = mkAnd . toList =<<
                                                (Just x,  Nothing) -> mkNot x
                                                (Nothing, Just y)  -> mkNot y
                                                (Just x,  Just y)  -> mkEq x y) a b
-
-factors :: (Integral a) => a -> [a]
-factors n = filter ((==) 0 . mod n) [1..n]
-
-fe' :: (Eq a, Universe a) => a -> Int
-fe' = fromJust . flip List.findIndex universe . (==)

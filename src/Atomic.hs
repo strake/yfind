@@ -41,6 +41,3 @@ unifyNbhds nbhd b u v =
     (nbhd i)           `for_` \ j -> when (not b || (fst $ v ! i)) $
     sequenceA_ [union p q | (_, p) <- u !? i
                           , (_, q) <- v !? j]
-
-(<$>>=) :: Monad m => m a -> (a -> m ()) -> m a
-am <$>>= f = (<*>) (<$) f =<< am

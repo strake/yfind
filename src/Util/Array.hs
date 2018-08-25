@@ -11,3 +11,7 @@ zipArraysA f as bs = sequenceA $ array (l, h) [(i, f (as !? i) (bs !? i)) | i <-
   where (al, ah) = bounds as
         (bl, bh) = bounds bs
         (l, h) = (min al bl, max ah bh)
+
+shift :: (Ix i, Num i) => (i, i) -> Array (i, i) a -> Array (i, i) a
+shift (dx, dy) a = listArray ((il + dx, jl + dy), (ih + dx, jh + dy)) (elems a)
+  where ((il, jl), (ih, jh)) = bounds a
