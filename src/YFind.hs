@@ -10,7 +10,7 @@ module YFind (Parms (..), go) where
 import Prelude hiding (filter, head, last, replicate)
 import Control.Arrow
 import Control.Monad
-import Control.Monad.Primitive
+import Control.Monad.ST
 import Control.Monad.Trans.Maybe
 import Data.Array
 import Data.Bool
@@ -44,7 +44,7 @@ data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (May
 go :: ∀ nbhd .
       (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (Int, Int), Cell nbhd ~ Bool, Eq nbhd, Finite nbhd)
    => (nbhd -> Bool -> [Bool]) -> Parms -> [(Array (Int, Int) Bool, nbhd -> Bool -> Bool)]
-go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> shape (Proxy :: _ nbhd)) . fst) . unsafeInlinePrim $ do
+go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> shape (Proxy :: _ nbhd)) . fst) $ runST $ do
     env <- newEnv Nothing mempty
     let e :: ∀ a . _ a -> _ a
         e = flip evalZ3WithEnv env
