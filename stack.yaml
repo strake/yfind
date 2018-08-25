@@ -4,17 +4,17 @@ packages:
 - .
 
 extra-deps:
+- basic-0.1.0.0
 - bitwise-1.0.0.1
+- control-0.1.1.0
 - foldable1-0.1.0.0
 - git: https://github.com/strake/Fin.hs
   commit: b5dc619673ea0a5205179cea217db2e8e7be4e6c
 - git: https://github.com/strake/ca.hs
   commit: 1e038dc8ba5de00e89bef2b9d5e3d2190e4ccb56
 - git: https://github.com/strake/ez3.hs
-  commit: a786f1fcad0bc9730d059fafdb9b455cbc7126c4
+  commit: cf83a5aa20d09cb261c182b11ec1ba4f5f2db20d
 - git: https://github.com/strake/primitive.hs
   commit: a43f1f488c78ffdb3acb607df703df16533fe7db
-- git: https://github.com/strake/util-primitive.hs
-  commit: 05b89eeb784761df1d9cc7c7849eedcacbd15a6f
 - git: https://github.com/strake/z3.hs
   commit: 4389af95f7ac21035697ed50fb5ef28926aafe57

@@ -12,6 +12,7 @@ import Control.Arrow
 import Control.Category
 import Control.Monad
 import Control.Monad.ST
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Data.Array
 import Data.Bool
@@ -45,31 +46,30 @@ data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (May
 go :: ∀ nbhd .
       (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (Int, Int), Cell nbhd ~ Bool, Eq nbhd, Finite nbhd)
    => (nbhd -> Bool -> [Bool]) -> Parms -> [(Array (Int, Int) Bool, nbhd -> Bool -> Bool)]
-go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> shape (Proxy :: _ nbhd)) . fst) $ runST $ do
-    env <- newEnv Nothing mempty
-    let e :: ∀ a . _ a -> _ a
-        e = flip evalZ3WithEnv env
-    (grids, evolve1) <- e $ setup rule parms
+go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> shape (Proxy :: _ nbhd)) . fst) $ runST $ evalZ3 $ do
+    (grids, evolve1) <- setup rule parms
     unsafeInterleaveWhileJust
-        (e . runMaybeT $ do
-             model <- MaybeT (snd <$> solverCheckAndGetModel)
-             (,) <$> (getCompose <$> MaybeT (mapEval evalBool model (Compose grids)))
-                 <*> (curry . unFn <$> traverse (MaybeT <<< evalBool model <=< uncurry evolve1) id))
-        (e <<< assert <=< (mkOr . \ (a, b) -> [a, b]) <=< mkExclude grids . head *=* mkExcludeRule evolve1)
+        (runMaybeT
+         [(a, curry b)
+            | model <- MaybeT (snd <$> solverCheckAndGetModel)
+            , rule <- lift $ for id (uncurry evolve1)
+            , Pair (Compose a) (Fn b) <-
+                  (MaybeT . evalBool model) `traverse` Pair (Compose grids) rule])
+        (assert <=< (\ (a, b) -> mkOr [a, b]) <=<
+         mkExcludeGrids grids . head *=*
+         (mkExcludeSame <=< for (Fn id) . \ rule ->
+          fmap . (,) . uncurry rule <*> uncurry evolve1))
 
-mkExclude :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s (AST s)
-mkExclude grids answer =
+mkExcludeGrids :: (Ix i) => NonEmpty (Array (i, i) (AST s)) -> Array (i, i) Bool -> Z3 s (AST s)
+mkExcludeGrids grids answer =
     mkAnd <=< for (toList grids) $
     mkNot <=< mkAnd . elems <=<
     zipArraysA (\ (fromMaybe False -> value) ->
                 maybe (mkBool False) pure >=> \ ast ->
                 mkEq ast =<< mkBool value) answer
 
-mkExcludeRule :: (Finite nbhd)
-              => (nbhd -> Bool -> Z3 s (AST s)) -> (nbhd -> Bool -> Bool) -> Z3 s (AST s)
-mkExcludeRule evolve1 rule =
-    mkNot <=< mkAnd <=< for universe $ \ (nbhd, cell) ->
-    bool mkNot pure (rule nbhd cell) =<< evolve1 nbhd cell
+mkExcludeSame :: Foldable f => f (Bool, AST s) -> Z3 s (AST s)
+mkExcludeSame = mkNot <=< mkAnd <=< traverse (uncurry $ bool mkNot pure) . toList
 
 setup :: ∀ nbhd s .
          (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Index nbhd ~ (Int, Int), Eq nbhd, Finite nbhd)
