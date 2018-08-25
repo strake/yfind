@@ -28,6 +28,7 @@ import Data.Traversable
 import Data.Tuple (swap)
 import Data.Universe.Class
 import Data.Universe.Instances.Base ()
+import Numeric.Natural
 import Util
 import Util.Array
 import Util.Monad.Primitive.Unsafe
@@ -76,26 +77,8 @@ setup :: ∀ nbhd s .
          (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Index nbhd ~ (Int, Int), Eq nbhd, Finite nbhd)
       => (nbhd -> Bool -> [Bool]) -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)), Sort s, FuncDecl s)
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
-    let prox = Proxy :: Proxy nbhd
-
-    (nbhdSort, nbhdFn) <- mkNbhdFn (fromCells @nbhd)
-    let mkNbhd :: nbhd -> Z3 s (AST s)
-        mkNbhd = flip mkInt nbhdSort . fe'
-
-    evol <-
-        [evol
-           | boolSort <- mkBoolSort
-           , evol <- mkFreshFuncDecl "evolve" [nbhdSort, boolSort] boolSort
-           , () <- for_ (universeF :: [(Bool, nbhd)]) $ \ (cell, nbhd) ->
-                   assert <=< mkOr <=< for (toList $ rule nbhd cell) $
-                   bind2 mkEq (mkApp evol =<< sequenceA [mkNbhd nbhd, mkBool cell]) . mkBool]
-
-    let evolve = evolve' (Pair <$> Identity <*> shape prox) $ \ (Pair (Identity a) as) ->
-                 mkApp evol =<< sequenceA [mkApp nbhdFn (toList as), pure a]
-
-    let ((il, jl), (ih, jh)) = bounds init
-
-    grids@(grid:|_) <- iterateM period evolve <=< sequenceA $ listArray ((il, jl), (ih, jh)) . repeat $ mkFreshBoolVar "cell"
+    (nbhdSort, nbhdFn, evol) <- setupRule rule
+    grids@(grid:|_) <- setupGrid (Proxy :: _ nbhd) evol nbhdFn period (bounds init)
     let grid' = transform (last grids)
           where transform = case symmetry of
                     Just (Symmetry.Mode {glideReflect = True, axis}) -> reflect axis
@@ -125,6 +108,30 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
       where ((il, _), (ih, _)) = bounds a
     reflectDia a = ixmap (swap *** swap $ bounds a) swap a
     reflectDia' = reflectOrtho . reflectDia . reflectOrtho
+
+    ((il, jl), (ih, jh)) = bounds init
+
+setupRule :: ∀ nbhd s .
+    (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Eq nbhd, Finite nbhd)
+ => (nbhd -> Bool -> [Bool]) -> Z3 s (Sort s, FuncDecl s, FuncDecl s)
+setupRule rule = do
+    (nbhdSort, nbhdFn) <- mkNbhdFn (fromCells @nbhd)
+    let mkNbhd :: nbhd -> Z3 s (AST s)
+        mkNbhd = flip mkInt nbhdSort . fe'
+    [(nbhdSort, nbhdFn, evol)
+       | boolSort <- mkBoolSort
+       , evol <- mkFreshFuncDecl "evolve" [nbhdSort, boolSort] boolSort
+       , () <- for_ (universeF :: [(Bool, nbhd)]) $ \ (cell, nbhd) ->
+               assert <=< mkOr <=< for (toList $ rule nbhd cell) $
+               bind2 mkEq (mkApp evol =<< sequenceA [mkNbhd nbhd, mkBool cell]) . mkBool]
+
+setupGrid :: ∀ nbhd i s .
+    (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (i, i), Num i, Ix i)
+ => Proxy nbhd -> FuncDecl s -> FuncDecl s -> Natural -> ((i, i), (i, i)) -> Z3 s (NonEmpty (Array (i, i) (AST s)))
+setupGrid prox evol nbhdFn period bounds =
+    let evolve = evolve' (Pair <$> Identity <*> shape prox) $ \ (Pair (Identity a) as) ->
+                 mkApp evol =<< sequenceA [mkApp nbhdFn (toList as), pure a]
+    in iterateM period evolve <=< sequenceA $ listArray bounds . repeat $ mkFreshBoolVar "cell"
 
 mkNbhdFn :: ∀ nbhd f s . (Applicative f, Traversable f, Eq nbhd, Finite nbhd) => (f Bool -> nbhd) -> Z3 s (Sort s, FuncDecl s)
 mkNbhdFn f =
