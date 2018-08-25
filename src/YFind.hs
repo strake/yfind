@@ -132,8 +132,7 @@ mkNbhdFn f =
        | boolSort <- mkBoolSort
        , nbhdSortSymbol <- mkStringSymbol "Nbhd"
        , nbhdSort <- mkFiniteDomainSort nbhdSortSymbol (fi $ length (universeF :: [nbhd]))
-       , nbhdFnSymbol <- mkStringSymbol "nbhd"
-       , nbhdFn <- mkFuncDecl nbhdFnSymbol (toList $ pure @f boolSort) nbhdSort
+       , nbhdFn <- mkFreshFuncDecl "nbhd" (toList $ pure @f boolSort) nbhdSort
        , () <- for_ (sequenceA $ pure (universeF :: [Bool])) $
                assert <=< bind2 mkEq <$> flip mkInt nbhdSort . fe' . f
                                      <*> (mkApp nbhdFn . toList <=< traverse mkBool)]
