@@ -24,6 +24,7 @@ import Data.Universe.Instances.Base ()
 import Numeric.Natural
 import Util
 import Util.Array
+import Util.Universe
 import Z3.Tagged
 
 import Evolve

@@ -9,6 +9,7 @@ extra-deps:
 - control-0.1.1.0
 - foldable1-0.1.0.0
 - util-0.1.11.0
+- util-universe-0.1.0.0
 - git: https://github.com/strake/Fin.hs
   commit: b5dc619673ea0a5205179cea217db2e8e7be4e6c
 - git: https://github.com/strake/ca.hs

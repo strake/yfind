@@ -29,9 +29,11 @@ import Data.Traversable
 import Data.Tuple (swap)
 import Data.Universe.Class
 import Data.Universe.Instances.Base ()
+import Numeric.Factors
 import Util
 import Util.Array
 import Util.Monad.Primitive.Unsafe
+import Util.Universe
 import Z3.Tagged
 
 import Atomic
