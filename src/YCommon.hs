@@ -57,11 +57,11 @@ setupRule rule = do
 
 setupGrid :: ∀ nbhd i s .
     (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (i, i), Num i, Ix i)
- => Proxy nbhd -> FuncDecl s -> FuncDecl s -> Natural -> ((i, i), (i, i)) -> Z3 s (NonEmpty (Array (i, i) (AST s)))
-setupGrid prox evol nbhdFn period bounds =
-    let evolve = evolve' (Pair <$> Identity <*> shape prox) $ \ (Pair (Identity a) as) ->
-                 mkApp evol =<< sequenceA [mkApp nbhdFn (toList as), pure a]
-    in iterateM period evolve <=< sequenceA $ listArray bounds . repeat $ mkFreshBoolVar "cell"
+ => Proxy nbhd -> FuncDecl s -> FuncDecl s -> Natural -> Array (i, i) (AST s) -> Z3 s (NonEmpty (Array (i, i) (AST s)))
+setupGrid prox evol nbhdFn period = iterateM period evolve
+  where
+    evolve = evolve' (Pair <$> Identity <*> shape prox) $ \ (Pair (Identity a) as) ->
+             mkApp evol =<< sequenceA [mkApp nbhdFn (toList as), pure a]
 
 mkNbhdFn :: ∀ nbhd f s . (Applicative f, Traversable f, Eq nbhd, Finite nbhd) => (f Bool -> nbhd) -> Z3 s (Sort s, FuncDecl s)
 mkNbhdFn f =

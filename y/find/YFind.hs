@@ -64,7 +64,8 @@ setup :: ∀ nbhd s .
       => (nbhd -> Bool -> [Bool]) -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)), nbhd -> Bool -> Z3 s (AST s))
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
     (nbhdFn, evol, evolve1) <- setupRule rule
-    grids@(grid:|_) <- setupGrid (Proxy :: _ nbhd) evol nbhdFn period (bounds init)
+    grids@(grid:|_) <- setupGrid (Proxy :: _ nbhd) evol nbhdFn period =<<
+                       traverse (maybe (mkFreshConst "cell" =<< mkBoolSort) mkBool) init
     let grid' = transform (last grids)
           where transform = case symmetry of
                     Just (Symmetry.Mode {glideReflect = True, axis}) -> reflect axis
