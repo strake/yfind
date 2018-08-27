@@ -18,8 +18,10 @@ library
                      , Evolve
                      , Nbhd
                      , Symmetry
-                     , YFind
-  other-modules:       Util
+                     , Data.Grid.Text
+                     , Data.Rule
+                     , YCommon
+                     , Util
                      , Util.Array
                      , Util.Monad.Primitive.Unsafe
   build-depends:       Fin
@@ -32,6 +34,7 @@ library
                      , control
                      , ez3
                      , filtrable
+                     , foldable1
                      , peano
                      , primitive
                      , transformers
@@ -66,24 +69,27 @@ library
                        -Wno-unticked-promoted-constructors
 
 executable yfind
-  hs-source-dirs:      x
+  hs-source-dirs:      y/find
   main-is:             Main.hs
+  other-modules:       Control.Monad.Trans.MaybeReader
+                     , YFind
   build-depends:       array
                      , base >= 4.7 && < 5
                      , base-unicode-symbols
                      , ca
                      , ez3
+                     , filtrable
                      , foldable1
                      , optparse-applicative
                      , transformers
                      , universe-base
                      , universe-instances-base
-                     , util
                      , yfind
   default-language:    Haskell2010
   default-extensions:  UnicodeSyntax
                      , LambdaCase
                      , InstanceSigs
+                     , NoMonomorphismRestriction
                      , PartialTypeSignatures
                      , PolyKinds
                      , ConstraintKinds
