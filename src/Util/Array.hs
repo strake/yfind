@@ -18,3 +18,6 @@ shift (dx, dy) a = listArray ((il + dx, jl + dy), (ih + dx, jh + dy)) (elems a)
 
 fnArrayA :: (Ix i, Applicative p) => (i, i) -> (i -> p a) -> p (Array i a)
 fnArrayA = (.) <$> fmap . listArray <*> for . range
+
+traverseWithIx :: (Ix i, Applicative p) => (i -> a -> p b) -> Array i a -> p (Array i b)
+traverseWithIx f as = listArray (bounds as) <$> traverse (uncurry f) (assocs as)

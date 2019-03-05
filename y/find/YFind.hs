@@ -41,6 +41,8 @@ import Nbhd
 import qualified Symmetry
 import YCommon
 
+import Debug.Trace
+
 data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (Maybe Bool), symmetry :: Maybe Symmetry.Mode, strictPeriod :: Bool }
   deriving (Eq, Read, Show)
 
@@ -67,7 +69,7 @@ setup :: ∀ nbhd s .
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
     (nbhdFn, evol, evolve1) <- setupRule rule
     grids@(grid:|_) <- setupGrid (Proxy :: _ nbhd) evol nbhdFn period =<<
-                       traverse (maybe (mkFreshConst "cell" =<< mkBoolSort) mkBool) init
+                       traverseWithIx (\ i -> maybe (mkFreshConst ("cell" ++ show i) =<< mkBoolSort) mkBool) init
     let grid' = transform (last grids)
           where transform = case symmetry of
                     Just (Symmetry.Mode {glideReflect = True, axis}) -> reflect axis
@@ -77,6 +79,7 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
         false <- mkBool False
         assert =<< mkAnd . toList =<< zipArraysA (join & maybe (pure $ mkBool True) (bool mkNot pure) & (. fromMaybe false)) init grid
         assert =<< mkArraysEqual grid (shift (dx, dy) grid')
+        () <- flip trace () <$> solverToString
         assert =<< (mkOr . toList . ixmap ((il, jl), (ih, jl)) id) grid'
         when strictPeriod
              (let c = foldr gcd (fi period) [dx, dy]
