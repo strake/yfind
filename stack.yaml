@@ -1,22 +1,19 @@
-resolver: lts-12.7
+resolver: lts-13.10
 
 packages:
 - .
 
 extra-deps:
+- Fin-0.2.7.0
 - basic-0.1.0.0
 - bitwise-1.0.0.1
 - control-0.1.1.0
-- foldable1-0.1.0.0
-- util-0.1.11.0
 - util-universe-0.1.0.0
-- git: https://github.com/strake/Fin.hs
-  commit: b5dc619673ea0a5205179cea217db2e8e7be4e6c
 - git: https://github.com/strake/ca.hs
   commit: 1e038dc8ba5de00e89bef2b9d5e3d2190e4ccb56
 - git: https://github.com/strake/ez3.hs
   commit: cf83a5aa20d09cb261c182b11ec1ba4f5f2db20d
-- git: https://github.com/strake/primitive.hs
-  commit: a43f1f488c78ffdb3acb607df703df16533fe7db
+- git: https://github.com/haskell/primitive
+  commit: fb594e9897e4bf9ef7105502c04f6e438bd5fb1b
 - git: https://github.com/strake/z3.hs
   commit: 4389af95f7ac21035697ed50fb5ef28926aafe57
