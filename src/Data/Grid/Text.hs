@@ -1,8 +1,14 @@
+{-# LANGUAGE ViewPatterns #-}
+
 module Data.Grid.Text where
 
+import Control.Monad
 import Data.Array
 import Data.Bool
+import Data.Char
 import Data.Foldable
+import Data.Maybe
+import Text.Read (readMaybe)
 import Util
 import Util.List
 
@@ -25,3 +31,12 @@ readGrid =
           in array ((0, 0), (width-1, height-1))
              [((i, j), c) | (j, row) <- zip [0..] (toList rows)
                           , (i, c)   <- zip [0..] (reverse . take width $ row ++ repeat Nothing)])
+
+readRle :: [Char] -> Maybe (Array (Int, Int) Bool)
+readRle = fmap (\ case '$' -> '\n'; '!' -> '\n'; 'b' -> '.'; x -> x) & expandRle >=> (fmap . fmap) (fromMaybe False) . readGrid
+  where
+    expandRle = span isDigit & \ case
+        ([], []) -> Just []
+        ([], x:xs) -> (x:) <$> expandRle xs
+        (readMaybe -> Just n, x:xs) -> (take n (repeat x) ++) <$> expandRle xs
+        _ -> Nothing
