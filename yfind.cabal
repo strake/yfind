@@ -79,6 +79,7 @@ executable yfind
                      , base >= 4.7 && < 5
                      , base-unicode-symbols
                      , ca
+                     , dual
                      , ez3
                      , filtrable
                      , foldable1

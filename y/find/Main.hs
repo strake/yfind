@@ -6,11 +6,13 @@ module Main where
 
 import Control.Applicative
 import Control.Arrow
+import Control.Category.Dual
 import Control.Monad
 import Control.Monad.Trans.MaybeReader
 import Control.Monad.Trans.Reader
 import Data.Array
 import Data.Foldable
+import Data.Functor.Compose
 import Data.Grid.Text
 import Data.List (elemIndex)
 import Data.Maybe (fromMaybe)
@@ -34,8 +36,9 @@ main = do
             let showHeader r a = asum ["x = ", show x, ", y = ", show y, ", rule = ", fromMaybe "?" $ showRule r, "\n"]
                   where ((il, jl), (ih, jh)) = bounds a
                         (x, y) = (ih - il + 1, jh - jl + 1)
-                showRule = asum . sequenceA [fmap (show . Moore.fromFn) . cast,
-                                             fmap (show . Hex.fromFn)   . cast]
+                showRule = asum . sequenceA [blah Moore.fromFn, blah Hex.fromFn]
+                  where
+                    blah fromFn = fmap (intercalate "," . fmap (show . fromFn . dual) . getCompose) . gcast . Compose . fmap Dual
             in foldMapA (\ (grid, rule) ->
                          putStrLn . runReaderT (altMap ReaderT [showHeader rule, showGrid]) $ grid) $ go rule parms
 

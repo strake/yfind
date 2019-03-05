@@ -9,10 +9,12 @@ extra-deps:
 - bitwise-1.0.0.1
 - control-0.1.1.0
 - util-universe-0.1.0.0
+- git: https://github.com/strake/dual.hs
+  commit: 7869ad0832ac1427e25b52f3026e0a62779bca0d
 - git: https://github.com/strake/ca.hs
   commit: 1e038dc8ba5de00e89bef2b9d5e3d2190e4ccb56
 - git: https://github.com/strake/ez3.hs
-  commit: cf83a5aa20d09cb261c182b11ec1ba4f5f2db20d
+  commit: 4ae302b75c745e4ecb246617a37c096cfe24d658
 - git: https://github.com/haskell/primitive
   commit: fb594e9897e4bf9ef7105502c04f6e438bd5fb1b
 - git: https://github.com/strake/z3.hs

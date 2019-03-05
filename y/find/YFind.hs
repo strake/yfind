@@ -21,7 +21,7 @@ import Data.Foldable
 import Data.Functor.Identity
 import Data.Functor.Compose
 import Data.Functor.Product
-import Data.List.NonEmpty (NonEmpty (..), head, last)
+import Data.List.NonEmpty (NonEmpty (..), head, last, nonEmpty)
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe)
 import Data.Proxy
@@ -34,7 +34,7 @@ import Util
 import Util.Array
 import Util.Monad.Primitive.Unsafe
 import Util.Universe
-import Z3.Tagged
+import Z3.Tagged as Z3
 
 import Atomic
 import Nbhd
@@ -48,20 +48,29 @@ data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (May
 
 go :: ∀ nbhd .
       (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (Int, Int), Cell nbhd ~ Bool, Eq nbhd, Finite nbhd)
-   => (nbhd -> Bool -> [Bool]) -> Parms -> [(Array (Int, Int) Bool, nbhd -> Bool -> Bool)]
+   => (nbhd -> Bool -> [Bool]) -> Parms -> [(Array (Int, Int) Bool, NonEmpty (nbhd -> Bool -> Bool))]
 go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> shape (Proxy :: _ nbhd)) . fst) $ runST $ evalZ3 $ do
     (grids, evolve1) <- setup rule parms
-    unsafeInterleaveWhileJust
-        (runMaybeT
-         [(a, curry b)
-            | model <- MaybeT (snd <$> solverCheckAndGetModel)
-            , rule <- lift $ for id (uncurry evolve1)
-            , Pair (Compose a) (Fn b) <-
-                  (MaybeT . evalBool model) `traverse` Pair (Compose grids) rule])
-        (assert <=< (\ (a, b) -> mkOr [a, b]) <=<
-         mkExcludeGrids grids . head *=*
-         (mkExcludeSame <=< for (Fn id) . \ rule ->
-          fmap . (,) . uncurry rule <*> uncurry evolve1))
+
+    let -- Find all rules the given pattern works in
+        findAllRules :: Array (Int, Int) Bool -> Z3 _ [nbhd -> Bool -> Bool]
+        findAllRules pattern = fmap curry <$> do
+            assumption <- mkFreshBoolVar "requirement"
+            () <- assert =<< mkEq assumption =<< mkArraysEqual (head grids) =<< traverse mkBool pattern
+            unsafeInterleaveWhileJust' $ \ assumptions -> runMaybeT
+                [(rule, exclusion)
+                   | model <- MaybeT ((>>= either (pure Nothing) Just) <$> solverCheckAssumptionsAndGetModel (assumption:assumptions))
+                   , Fn rule <- traverse (MaybeT . evalBool model) =<< (lift $ for id (uncurry evolve1))
+                   , exclusion <- lift $ mkFreshBoolVar "exclusion"
+                   , () <- lift $ assert =<< mkEq exclusion =<< mkExcludeSame =<< Fn id `for` (fmap . (,) . rule <*> uncurry evolve1)]
+
+    unsafeInterleaveWhileJust' $ \ assumptions -> runMaybeT
+        [((patterns, rules), exclusion)
+            | model <- MaybeT ((>>= either (pure Nothing) Just) <$> solverCheckAssumptionsAndGetModel assumptions)
+            , Compose patterns@(pattern:|_) <- (MaybeT . evalBool model) `traverse` Compose grids
+            , rules <- (MaybeT . fmap nonEmpty) (findAllRules pattern)
+            , exclusion <- lift $ mkFreshBoolVar "exclusion"
+            , () <- lift $ assert =<< mkEq exclusion =<< mkExcludeGrids grids pattern]
 
 setup :: ∀ nbhd s .
          (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Index nbhd ~ (Int, Int), Eq nbhd, Finite nbhd)
