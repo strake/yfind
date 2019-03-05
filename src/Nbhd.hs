@@ -16,6 +16,7 @@ class Neighborly nbhd where
     type Cell nbhd :: *
     shape :: Proxy nbhd -> Index nbhd -> Shape nbhd (Index nbhd)
     fromCells :: Shape nbhd (Cell nbhd) -> nbhd
+    complement :: Cell nbhd ~ Bool => nbhd -> nbhd
 
 instance Neighborly Hex.Nbhd where
     type Index Hex.Nbhd = (Int, Int)
@@ -24,6 +25,7 @@ instance Neighborly Hex.Nbhd where
     shape _ = fromJust . fromList . \ (i, j) ->
         [(i+0, j+1), (i-1, j+1), (i-1, j+0), (i+0, j-1), (i+1, j-1), (i+1, j+0)]
     fromCells = Hex.fromList
+    complement = Hex.complement
 
 instance Neighborly Moore.Nbhd where
     type Index Moore.Nbhd = (Int, Int)
@@ -32,3 +34,4 @@ instance Neighborly Moore.Nbhd where
     shape _ = fromJust . fromList . \ (i, j) ->
         [(i+1, j+1), (i+0, j+1), (i-1, j+1), (i-1, j+0), (i-1, j-1), (i+0, j-1), (i+1, j-1), (i+1, j+0)]
     fromCells = Moore.fromList
+    complement = Moore.complement

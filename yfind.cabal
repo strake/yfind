@@ -55,6 +55,7 @@ library
                      , ConstraintKinds
                      , FlexibleContexts
                      , FlexibleInstances
+                     , ConstrainedClassMethods
                      , MonadComprehensions
                      , StandaloneDeriving
                      , GeneralizedNewtypeDeriving

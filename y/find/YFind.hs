@@ -41,7 +41,9 @@ import Nbhd
 import qualified Symmetry
 import YCommon
 
-data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (Maybe Bool), symmetry :: Maybe Symmetry.Mode, strictPeriod :: Bool }
+data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (Maybe Bool)
+                   , symmetry :: Maybe Symmetry.Mode, strictPeriod :: Bool
+                   , idempotentRule :: Bool, selfComplementaryRule :: Bool }
   deriving (Eq, Read, Show)
 
 go :: ∀ nbhd .
@@ -66,6 +68,15 @@ setup :: ∀ nbhd s .
       => (nbhd -> Bool -> [Bool]) -> Parms -> Z3 s (NonEmpty (Array (Int, Int) (AST s)), nbhd -> Bool -> Z3 s (AST s))
 setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
     (nbhdFn, evol, evolve1) <- setupRule rule
+
+    () <- when idempotentRule $
+          assert <=< mkAnd <=< for (universeF :: [nbhd]) $ \ nbhd ->
+          bind2 mkImplies (evolve1 nbhd False) (evolve1 nbhd True)
+
+    () <- when selfComplementaryRule $
+          assert <=< mkAnd <=< for (universeF :: [nbhd]) $ \ nbhd ->
+          bind2 mkEq (evolve1 nbhd False) (evolve1 (complement nbhd) True)
+
     grids@(grid:|_) <- setupGrid (Proxy :: _ nbhd) evol nbhdFn period =<<
                        traverse (maybe (mkFreshConst "cell" =<< mkBoolSort) mkBool) init
     let grid' = transform (last grids)

@@ -51,7 +51,9 @@ options = Options <$> lift (option (maybeReader parseRules') (short 'r' <> metav
                                   lift (flag' (Right ()) (short 'i')) *> MaybeReaderT (pure $ Right id))
                              <*> lift (option (maybeReader $ fmap Just . parseSymmetryMode)
                                               (short 'g' <> metavar "symmetry" <> value Nothing))
-                             <*> lift (switch (long "strict-period")))
+                             <*> lift (switch (long "strict-period"))
+                             <*> lift (switch (long "rule-idempotent"))
+                             <*> lift (switch (long "rule-self-complementary")))
   where
     parseSymmetryMode :: [Char] -> Maybe Symmetry.Mode
     parseSymmetryMode s = [Symmetry.Mode {..}
