@@ -4,11 +4,8 @@
 
 module Main where
 
-import Control.Applicative
 import Control.Arrow
 import Control.Category.Dual
-import Control.Monad
-import Control.Monad.Trans.MaybeReader
 import Control.Monad.Trans.Reader
 import Data.Array
 import Data.Foldable
@@ -22,15 +19,14 @@ import qualified Data.Rule.Moore as Moore
 import Data.Typeable
 import Options.Applicative
 import Util
+import Util.Array
 
 import qualified Symmetry
 import Search
 
 main :: IO ()
 main = do
-    Options { rule' = Rule' rule, .. } <- execParser (info (unMaybeReaderT options) mempty) >>= \ case
-        Left o -> pure o
-        Right f -> f . fromMaybe (error "no parse") . readGrid <$> getContents
+    Options { rule' = Rule' rule, .. } <- execParser (info options mempty)
     let showHeader r a = asum ["x = ", show x, ", y = ", show y, ", ",
                                "rule = ", fromMaybe "?" $ showRule r, "\n"]
           where ((il, jl), (ih, jh)) = bounds a
@@ -38,23 +34,25 @@ main = do
         showRule = asumF [f Moore.fromFn, f Hex.fromFn]
           where f φ = fmap (intercalate "," . fmap (show . φ . dual) . getCompose) .
                       gcast . Compose . fmap Dual
-    search rule parms `for'` \ (grid, rule) -> putStrLn . asumF [showHeader rule, showGrid] $ grid
+    (inits, strictSize) <- flip fmap getContents $ readGrid & \ case
+        Just init -> ([init], False)
+        Nothing -> (flip fmap [0..] $ \ n -> fnArray ((0, 0), (n, n)) (pure Nothing), True)
+    altMap (search rule . curry parms' strictSize) inits `for'` \ (grid, rule) -> putStrLn . asumF [showHeader rule, showGrid] $ grid
   where asumF = runReaderT . altMap ReaderT
         for' = flip foldMapA
 
-data Options = Options { rule' :: Rule' Bool, parms :: Parms }
+data Options = Options { rule' :: Rule' Bool, parms' :: (Bool, Array (Int, Int) (Maybe Bool)) -> Parms }
 
-options :: MaybeReaderT (Array (Int, Int) (Maybe Bool)) Parser Options
-options = Options <$> lift (option (maybeReader parseRules') (short 'r' <> metavar "rule"))
-                  <*> (Parms <$> lift (option (maybeReader $ \ s ->
+options :: Parser Options
+options = Options <$> (option (maybeReader parseRules') (short 'r' <> metavar "rule"))
+                  <*> getCompose (Parms <$> lift (option (maybeReader $ \ s ->
                                                (read *** read . tail <<< flip splitAt s) <$> elemIndex '/' s)
                                               (short 'v' <> metavar "speed" <> value ((0,0),1)))
-                             <*> ((\ size -> listArray ((0, 0), join (***) (+ negate 1) size) (repeat Nothing)) <$>
-                                  lift (option auto (short 's' <> metavar "size")) <|>
-                                  lift (flag' (Right ()) (short 'i')) *> MaybeReaderT (pure $ Right id))
+                             <*> Compose (pure snd)
                              <*> lift (option (maybeReader $ fmap Just . parseSymmetryMode)
                                               (short 'g' <> metavar "symmetry" <> value Nothing))
                              <*> lift (switch (long "strict-period"))
+                             <*> Compose (pure fst)
                              <*> lift (switch (long "rule-idempotent"))
                              <*> lift (switch (long "rule-self-complementary")))
   where
@@ -67,3 +65,5 @@ options = Options <$> lift (option (maybeReader parseRules') (short 'r' <> metav
       where (s', glideReflect) = case stripSuffix "~" s of
                 Nothing -> (s, False)
                 Just s' -> (s', True)
+
+    lift = Compose . fmap pure

@@ -2,6 +2,7 @@ module Util.Array where
 
 import Control.Monad (guard)
 import Data.Array
+import Data.Functor.Identity
 import Data.Traversable
 
 (!?) :: Ix i => Array i a -> i -> Maybe a
@@ -18,3 +19,6 @@ shift (dx, dy) a = listArray ((il + dx, jl + dy), (ih + dx, jh + dy)) (elems a)
 
 fnArrayA :: (Ix i, Applicative p) => (i, i) -> (i -> p a) -> p (Array i a)
 fnArrayA = (.) <$> fmap . listArray <*> for . range
+
+fnArray :: Ix i => (i, i) -> (i -> a) -> Array i a
+fnArray b = runIdentity . fnArrayA b . (Identity .)

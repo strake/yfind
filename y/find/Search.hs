@@ -42,7 +42,7 @@ import qualified Symmetry
 import YCommon
 
 data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (Maybe Bool)
-                   , symmetry :: Maybe Symmetry.Mode, strictPeriod :: Bool
+                   , symmetry :: Maybe Symmetry.Mode, strictPeriod :: Bool, strictSize :: Bool
                    , idempotentRule :: Bool, selfComplementaryRule :: Bool }
   deriving (Eq, Read, Show)
 
@@ -108,6 +108,13 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
             Just (Symmetry.Mode {glideReflect = False, axis}) -> for_ grids $ \ grid ->
                 assert =<< (mkArraysEqual <*> reflect axis) grid
             Nothing -> assert =<< (mkOr . altMap (toList . ixmap ((il, jl), (il, jh)) id)) grids
+        when strictSize
+             (let bottom = toList . ixmap ((il, jh), (ih, jh)) id
+                  left   = toList . ixmap ((il, jl), (il, jh)) id
+                  right  = toList . ixmap ((ih, jl), (ih, jh)) id
+              in assert =<< mkOr =<<
+                 sequenceA [mkAnd =<< traverse (mkOr . flip altMap grids) [left, right],
+                            mkOr (altMap bottom grids)])
   where
     reflect :: (Ix i, Num i) => Symmetry.Axis -> Array (i, i) (AST s) -> Array (i, i) (AST s)
     reflect = \ case
