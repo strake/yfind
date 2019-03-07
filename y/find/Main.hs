@@ -28,19 +28,19 @@ import YFind
 
 main :: IO ()
 main = do
-    Options {..} <- execParser (info (unMaybeReaderT options) mempty) >>= \ case
+    Options { rule' = Rule' rule, .. } <- execParser (info (unMaybeReaderT options) mempty) >>= \ case
         Left o -> pure o
         Right f -> f . fromMaybe (error "no parse") . readGrid <$> getContents
-    case rule' of
-        Rule' rule ->
-            let showHeader r a = asum ["x = ", show x, ", y = ", show y, ", rule = ", fromMaybe "?" $ showRule r, "\n"]
-                  where ((il, jl), (ih, jh)) = bounds a
-                        (x, y) = (ih - il + 1, jh - jl + 1)
-                showRule = asum . sequenceA [blah Moore.fromFn, blah Hex.fromFn]
-                  where
-                    blah fromFn = fmap (intercalate "," . fmap (show . fromFn . dual) . getCompose) . gcast . Compose . fmap Dual
-            in foldMapA (\ (grid, rule) ->
-                         putStrLn . runReaderT (altMap ReaderT [showHeader rule, showGrid]) $ grid) $ go rule parms
+    let showHeader r a = asum ["x = ", show x, ", y = ", show y, ", ",
+                               "rule = ", fromMaybe "?" $ showRule r, "\n"]
+          where ((il, jl), (ih, jh)) = bounds a
+                (x, y) = (ih - il + 1, jh - jl + 1)
+        showRule = asumF [f Moore.fromFn, f Hex.fromFn]
+          where f φ = fmap (intercalate "," . fmap (show . φ . dual) . getCompose) .
+                      gcast . Compose . fmap Dual
+    go rule parms `for'` \ (grid, rule) -> putStrLn . asumF [showHeader rule, showGrid] $ grid
+  where asumF = runReaderT . altMap ReaderT
+        for' = flip foldMapA
 
 data Options = Options { rule' :: Rule' Bool, parms :: Parms }
 
