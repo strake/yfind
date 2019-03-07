@@ -24,7 +24,7 @@ import Options.Applicative
 import Util
 
 import qualified Symmetry
-import YFind
+import Search
 
 main :: IO ()
 main = do
@@ -38,7 +38,7 @@ main = do
         showRule = asumF [f Moore.fromFn, f Hex.fromFn]
           where f φ = fmap (intercalate "," . fmap (show . φ . dual) . getCompose) .
                       gcast . Compose . fmap Dual
-    go rule parms `for'` \ (grid, rule) -> putStrLn . asumF [showHeader rule, showGrid] $ grid
+    search rule parms `for'` \ (grid, rule) -> putStrLn . asumF [showHeader rule, showGrid] $ grid
   where asumF = runReaderT . altMap ReaderT
         for' = flip foldMapA
 

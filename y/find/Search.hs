@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module YFind (Parms (..), go) where
+module Search (Parms (..), search) where
 
 import Prelude hiding (filter, head, last, replicate, id, (.))
 import Control.Arrow
@@ -46,10 +46,10 @@ data Parms = Parms { speed :: ((Int, Word), Word), init :: Array (Int, Int) (May
                    , idempotentRule :: Bool, selfComplementaryRule :: Bool }
   deriving (Eq, Read, Show)
 
-go :: ∀ nbhd .
-      (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (Int, Int), Cell nbhd ~ Bool, Eq nbhd, Finite nbhd)
-   => (nbhd -> Bool -> [Bool]) -> Parms -> [(Array (Int, Int) Bool, NonEmpty (nbhd -> Bool -> Bool))]
-go rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> shape (Proxy :: _ nbhd)) . fst) $ runST $ evalZ3 $ do
+search :: ∀ nbhd .
+    (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Index nbhd ~ (Int, Int), Cell nbhd ~ Bool, Eq nbhd, Finite nbhd)
+ => (nbhd -> Bool -> [Bool]) -> Parms -> [(Array (Int, Int) Bool, NonEmpty (nbhd -> Bool -> Bool))]
+search rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*> shape (Proxy :: _ nbhd)) . fst) $ runST $ evalZ3 $ do
     (grids, evolve1) <- setup rule parms
 
     let -- Find all rules the given pattern works in
