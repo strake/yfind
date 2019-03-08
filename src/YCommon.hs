@@ -8,6 +8,7 @@
 module YCommon where
 
 import Prelude hiding (filter, head, last, replicate, id, (.))
+import Control.Arrow ((***))
 import Control.Category
 import Control.Monad
 import Data.Array
@@ -19,6 +20,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
 import Data.Proxy
 import Data.Traversable
+import Data.Tuple (swap)
 import Data.Universe.Class
 import Data.Universe.Instances.Base ()
 import Numeric.Natural
@@ -83,3 +85,13 @@ mkArraysEqual a b = mkAnd . toList =<<
                                                (Just x,  Nothing) -> mkNot x
                                                (Nothing, Just y)  -> mkNot y
                                                (Just x,  Just y)  -> mkEq x y) a b
+
+reflectOrtho :: (Ix i, Ix j, Num i) => Array (i, j) a -> Array (i, j) a
+reflectOrtho a = ixmap (bounds a) (\ (i, j) -> (il + ih - i, j)) a
+  where ((il, _), (ih, _)) = bounds a
+
+reflectDia :: (Ix i, Ix j) => Array (i, j) a -> Array (j, i) a
+reflectDia a = ixmap (swap *** swap $ bounds a) swap a
+
+reflectDia' :: (Ix i, Ix j, Num i, Num j) => Array (i, j) a -> Array (j, i) a
+reflectDia' = reflectOrtho . reflectDia . reflectOrtho

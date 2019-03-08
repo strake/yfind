@@ -26,7 +26,6 @@ import qualified Data.List.NonEmpty as NE
 import Data.Maybe (fromMaybe)
 import Data.Proxy
 import Data.Traversable
-import Data.Tuple (swap)
 import Data.Universe.Class
 import Data.Universe.Instances.Base ()
 import Numeric.Factors
@@ -70,7 +69,7 @@ search rule parms = fmap (head *** id) . filter (isAtomic (Pair <$> Identity <*>
             , Compose patterns@(pattern:|_) <- (MaybeT . evalBool model) `traverse` Compose grids
             , rules <- (MaybeT . fmap nonEmpty) (findAllRules pattern)
             , exclusion <- lift $ mkFreshBoolVar "exclusion"
-            , () <- lift $ assert =<< mkEq exclusion =<< mkExcludeGrids grids pattern]
+            , () <- lift $ assert =<< mkEq exclusion =<< mkExcludeGrids (altMap (<$> toList grids) [id, reflectDia, reflectDia']) pattern]
 
 setup :: ∀ nbhd s .
          (Applicative (Shape nbhd), Traversable (Shape nbhd), Neighborly nbhd, Cell nbhd ~ Bool, Index nbhd ~ (Int, Int), Eq nbhd, Finite nbhd)
@@ -120,9 +119,5 @@ setup rule (Parms { speed = ((dx, fi -> dy), fi -> period), .. }) = do
     reflect = \ case
         Symmetry.Ortho -> reflectOrtho
         Symmetry.Dia   -> bool reflectDia reflectDia' (dx < 0)
-    reflectOrtho a = ixmap (bounds a) (\ (i, j) -> (il + ih - i, j)) a
-      where ((il, _), (ih, _)) = bounds a
-    reflectDia a = ixmap (swap *** swap $ bounds a) swap a
-    reflectDia' = reflectOrtho . reflectDia . reflectOrtho
 
     ((il, jl), (ih, jh)) = bounds init
