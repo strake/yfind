@@ -1,8 +1,9 @@
 module Atomic (atoms, isAtomic) where
 
-import Control.Monad (guard, when)
+import Control.Monad (guard)
 import Control.Monad.ST
 import Data.Array
+import Data.Bool
 import Data.Filtrable
 import Data.Foldable
 import Data.Functor.Compose
@@ -10,6 +11,7 @@ import qualified Data.List as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Traversable
 import Data.UnionFind.ST
+import Util
 import Util.Array
 
 isAtomic :: (Ix i, Foldable f) => (i -> f i) -> NonEmpty (Array i Bool) -> Bool
@@ -22,22 +24,20 @@ atoms nbhd grids = runST ((fmap . fmap) getCompose . parts . Compose =<< atomize
 
 parts :: Traversable f => f (Bool, Point s ()) -> ST s [f Bool]
 parts xs = do
-    ps <- List.nub <$> (\ (a, p) -> (<$ guard a) <$> repr p) `mapMaybeA` toList xs
-    ps `for` \ p -> xs `for` \ (a, q) -> (&&) a <$> equivalent p q
+    ps <- List.nub <$> (traverse repr . mapMaybe (\ (a, p) -> p <$ guard a) . toList) xs
+    ps `for` \ p -> xs `for` \ (a, q) -> bool (pure False) (equivalent p q) a
 
 atomize :: (Ix i, Foldable f) => (i -> f i) -> NonEmpty (Array i Bool) -> ST s (NonEmpty (Array i (Bool, Point s ())))
 atomize nbhd grids = do
     u:|us <- traverse (atomize1 nbhd) grids
-    u:|us <$ foldlM (\ u v -> v <$ unifyNbhds nbhd True u v) u us
+    u:|us <$ foldlM (\ u v -> v <$ unify nbhd False u v) u us
 
 atomize1 :: (Ix i, Foldable f) => (i -> f i) -> Array i Bool -> ST s (Array i (Bool, Point s ()))
 atomize1 nbhd grid = do
     u <- for grid $ (<$> fresh ()) . (,)
-    u <$ unifyNbhds nbhd False u u
+    u <$ unify nbhd True u u
 
-unifyNbhds :: (Ix i, Foldable f) => (i -> f i) -> Bool -> Array i (Bool, Point s ()) -> Array i (Bool, Point s ()) -> ST s ()
-unifyNbhds nbhd b u v =
-    (range . bounds) u `for_` \ i -> when (fst $ u ! i) $
-    (nbhd i)           `for_` \ j -> when (not b || (fst $ v ! i)) $
-    sequenceA_ [union p q | (_, p) <- u !? i
-                          , (_, q) <- v !? j]
+unify :: (Ix i, Foldable f) => (i -> f i) -> Bool -> Array i (Bool, Point s ()) -> Array i (Bool, Point s ()) -> ST s ()
+unify nbhd b u v = foldMapA id
+    [union p q | (i, (True, p)) <- assocs u, j <- i : toList (nbhd i)
+               , (a, q) <- toList (v !? j), a || b]
