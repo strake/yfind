@@ -111,6 +111,12 @@ executable yfind
                        -Werror=incomplete-record-updates
                        -Werror=missing-fields
                        -Werror=missing-methods
+  if impl(ghc)
+    build-depends:     comprehensions-ghc
+    ghc-options:       -fplugin=Comprehension.Plugin
+    default-extensions:ApplicativeDo
+  else
+    default-extensions:ApplicativeComprehensions
 
 test-suite test
   type:                exitcode-stdio-1.0
